@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 import seaborn as sns
 import thunder as td
-
+import pandas as pd
 
 ##################
 # data exploration
@@ -23,46 +23,47 @@ import thunder as td
 data = td.images.fromexample('fish', engine=sc)
 
 # explore the resulting object
-print(data)
-print(data.values)
-print(data.values.first())
-print(data.values._rdd)
-print(data.values._rdd.first())
-print(data.shape)
-print(data.count())
+#print(data)
+#print(data.values)
+#print(data.values.first())
+#print(data.values._rdd)
+#print(data.values._rdd.first())
+#print(data.shape)
+#print(data.count())
 
 # plot the raw data
 img = data.first()
 
-#plt.imshow(img[:, : ,0], interpolation='nearest', aspect='equal', cmap='gray')
+#plt.imshow(img[0], interpolation='nearest', aspect='equal', cmap='gray')
 
 # plot subsampled data
 subsampled = data.subsample((5, 5, 1))
 
-#plt.imshow(subsampled.first()[1][:, : ,0], interpolation='nearest', aspect='equal', cmap='gray')
+#plt.imshow(subsampled.first()[0], interpolation='nearest', aspect='equal', cmap='gray')
 
-print(subsampled.shape)
+#print(subsampled.shape)
 
 # reshuffle data to series representation
 series = data.toseries()
-print(series.shape)
-print(series.index)
-print(series.count())
-print(series.values._rdd.takeSample(False, 1)[0])
-print(series.max().values)
+#print(series.shape)
+#print(series.index)
+#print(series.count())
+#print(series.values._rdd.takeSample(False, 1)[0])
+#print(series.max().values)
 
 # distributed computation of stats
 stddev = series.map(lambda s: s.std())
-print(stddev.values._rdd.take(3))
-print(stddev.shape)
+#print(stddev.values._rdd.take(3))
+#print(stddev.shape)
 
 # collecting data locally and repacking it
 repacked = stddev.toarray()
 
+
 #plt.imshow(repacked[:,:,0], interpolation='nearest', cmap='gray', aspect='equal')
 
-print(type(repacked))
-print(repacked.shape)
+#print(type(repacked))
+#print(repacked.shape)
 
 # plot some of the time series themselves
 img_time = series.center().sample(50).toarray
@@ -85,13 +86,14 @@ data.toseries().tobinary('directory', overwrite=True)
 series = data.toseries()
 
 normalized = series.normalize(method='mean')
-stddevs = (normalized.map(lambda s: s.std()).sample(10))
+stddevs = (normalized.map(lambda s: s.std()).sample(1000))
+
 
 img_std = plt.hist(stddevs.values, bins=20)
-print(img_std)
+#print(img_std)
 
 img_filter = plt.plot(normalized.filter(lambda s: s.std() >= 0.1).sample(50).values.T)
-print(img_filter)
+
 
 
 # perform k-means on the normalized series
@@ -119,16 +121,33 @@ errors_2 = np.asarray(map(model_error_2, models))
 img_er = plt.plot(
     ks, errors_1 / errors_1.sum(), 'k-o',
     ks, errors_2 / errors_2.sum(), 'b:v')
-print(img_er)
 
+Er1 = errors_1 / errors_1.sum()
+#print(Er1)
+Er2 = errors_2 / errors_1.sum()
+#print(Er2)
 # plot the best performing model
 model20 = models[3]
 img_m20 = plt.plot(np.asarray(model20.centers).T)
-print(img_m20)
-
+#print(img_m20)
+#print(np.asarray(model20.centers).T)
 
 # finally, plot each brain region according to its characteristic behavior
 from matplotlib.colors import ListedColormap
-cmap_cat = ListedColormap(sns.color_palette("hls", 10), name='from_list')
+import mpld3
+from mpld3 import plugins
+
+fig, ax = plt.subplots()
 by_cluster = normalized.map(lambda s: model20.predict(s)).toarray()
-plt.imshow(by_cluster[:, :, 0], interpolation='nearest',aspect='equal', cmap='gray')
+
+X = by_cluster
+
+im = plt.imshow(by_cluster[0], interpolation='nearest',aspect='equal', cmap='gray')
+
+fig.colorbar(im, ax=ax)
+
+ax.set_title('Cluster membership', size=20)
+
+plugins.connect(fig, plugins.MousePosition(fontsize=14))
+
+displayHTML(mpld3.fig_to_html(fig))
